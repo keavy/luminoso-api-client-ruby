@@ -4,7 +4,6 @@
 project = LuminosoClient.new   
 code = project.connect([account], [username], [password])   
 if code then   
-# GET API examples:   
     result = project.get('projects/')   
     puts result   
   
