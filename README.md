@@ -1,4 +1,4 @@
-Luminoso Ruby Client implementation    
+# Luminoso Ruby Client implementation    
      
 ~/Ruby$ ruby testClient.rb     
 {    
