@@ -23,11 +23,11 @@ project = LuminosoClient.new
 code = project.connect('e26y767s' , 'georgek@gmail.com', 'aarus466xttaw682')
 if code then
 # GET API examples:
-    result = project.get('projects/')
+#    result = project.get('projects/')
 #    result = project.get('projects/Siddhartha/topics/')
 #    result = project.get('projects/Siddhartha/topics/stats/')
 #    result = project.get('projects/Siddhartha/docs/correlations/')
-#    result = project.put('projects/Siddhartha/', :desc=>"A Book")
+    result = project.put('projects/Siddhartha/', :desc=>"A Book")
     puts result
 #    result = project.put('projects/Siddhartha/', :desc=>"Book")
 #    puts result

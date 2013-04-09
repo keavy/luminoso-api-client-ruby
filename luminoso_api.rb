@@ -107,7 +107,7 @@ api.lumino.so
         sorted_options.each do |option|                                             # iterate options alphabetically by symbol
             s = "#{option[0]}: #{URI::encode(option[1])}\n"; sign_string+=s
         end
-        puts "===\n"+sign_string+"==="
+#        puts "===\n"+sign_string+"==="
 
         digested = OpenSSL::HMAC.digest('sha1', @secret, sign_string)
         encoded = Base64.encode64(digested).chomp                     # encrypt the digest
@@ -116,7 +116,6 @@ api.lumino.so
             account_url = @@base_url + @project + '/'
             options.merge!(:sig => encoded, :expires => @expires)       # add sig, expires to params
             response = RestClient.put(account_url+api, options, {:cookie => @session_cookie})
-            puts response
             session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
             @session_cookie = session_cookie[0]                                # update the cookie
         rescue => e
