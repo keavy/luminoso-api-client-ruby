@@ -1,0 +1,230 @@
+Authenticated REST calls for the Luminoso API (release v3)
+==========================================================
+
+OVERVIEW
+
+All API requests against api.lumino.so must be signed using HMAC-SHA1
+in conjunction with HTTP cookies.  A typical client-API interaction will
+look like this:
+
+1) Initialization: client POSTs a username and password to the API.
+   - API replies with a dictionary and a cookie to be used in future requests.
+   - These credentials have an expiration.
+
+2) Usage: client GETs/POSTs/PUTs/DELETEs* requests to a particular
+API endpoint.
+   - The request includes special fields for authentication.
+   - API reply includes updated cookies for future requests.
+
+3) Repeat step 2 until the credentials expire.
+   - The credentials expire after a variable period (usually 10 minutes)
+   - The cookies returned by API calls in step 2 are "refreshed".
+   - The API stops refreshing cookies after 1 hour from Initialization
+   (step 1)
+
+4) Repeat step 1.
+
+Authentication or authorization failures of any kind will appear as HTTP
+response code 401 UNAUTHORIZED.
+
+INITIALIZATION
+
+The login endpoint is https://api.lumino.so/v3/.auth/login/ .  A POST
+to this endpoint SHOULD contain two POST fields: username and password.
+On success, the API will return a JSON-encoded dictionary in the response
+body and two cookies in the response headers.  The cookies are session and
+key_expires. Taken together, the values of the session cookie and the
+dictionary are the client's credentials.
+
+The cookies are as follows:
+
+- session: This cookie MUST be returned to the server on subsequent
+  requests, though the API MAY return a replacement session cookie. The
+  client MUST consider the value of this cookie to be opaque.
+
+- key_expires: This cookie SHOULD NOT be returned to the server on
+  subsequent requests.  It is an integer representing the time (measured in
+  milliseconds from UNIX epoch) that the client's credentials will no
+  longer be accepted (the key expiration time).  If the client submits a
+  query to the API before this time, the API SHOULD return new session and
+  key_expires cookies, extending the key expiration time to approximately
+  10 minutes in the future. The client SHOULD use this new session cookie
+  in future requests.
+
+The fields of the dictionary are as follows:
+
+- key_id: The value of this entry is a string that MUST be used by the
+  client in the signing (authentication) process.
+
+- secret: The value of this entry is a string that MUST be used by the
+  client in the signing (authentication) process.
+
+- renew_until: This is an integer representing the time (measured in
+  milliseconds from UNIX epoch) beyond which the API will no longer extend
+  the key expiration time.
+
+QUERYING
+
+Authenticating to the Luminoso API has the form of taking a simple
+REST request and adding additional query parameters calculated from
+the request, the key_id, and the secret. Adding these query parameters
+(key_id, sig, and expires) constitutes "signing" the request.
+
+Consider a GET request to
+https://api.lumino.so/v3/example-account/projects/ (the endpoint that
+returns the metadata for each project the user can access). This endpoint
+has no additional parameters, but a complete request will still look
+like this:
+
+    https://api.lumino.so/v3/lui/projects/?key_id=IZj79BvIiW0uZw-IYJXgDd53Mua4RUdg&sig=dZE2VPoIxudm2xskoySlMHv%2B3D4&expires=1342758911406
+
+More legibly:
+
+    https://api.lumino.so/v3/lui/projects/
+     ?key_id=IZj79BvIiW0uZw-IYJXgDd53Mua4RUdg
+     &sig=dZE2VPoIxudm2xskoySlMHv%2B3D4
+     &expires=1342758911406
+
+The key_id parameter comes from the client's credentials.  The expires
+parameter is the latest point in time (measured in milliseconds from
+UNIX epoch) that the client wishes the API to accept this request.
+It SHOULD not be later than key_expires, as the API will reject the
+request if no other request is received to refresh the session cookie.
+The expires value MUST not be later than renew_until.  The API MAY enforce
+a more stringent security policy on particular accounts by arrangement.
+Generally, 30 seconds into the future is an appropriate expiration
+time for most automated uses.  The sig parameter is calculated as a
+base64-encoded HMAC-SHA1 digest (the digest may change in future API
+releases) of a string derived from the following template (exclusive of
+the === delimiters):
+
+===
+{GET,POST,PUT,DELETE}
+(endpoint host: api.lumino.so)
+(endpoint path: /v3/.../; this string must end in a slash)
+(content-SHA1: base64-encoded, blank if no file upload)
+(content-type: blank if no file upload)
+(request-expires: ms from epoch)
+(canonicalized query parameters: "key: value" lines, sorted by key,
+delimited by newlines, excludes 'sig' and 'expires' keys; values are
+url-quoted*)
+===
+
+* URL-quoting, in this case, is equivalent to encodeURI in javascript,
+which works by replacing all characters with their UTF-8 escape sequence
+(a space becomes %20, for example), except: alphabetic characters,
+decimal digits, and the symbols ; , / ? : @ & = + $ - _ . ! ~ * ' ( ) #.
+
+Note also that the last line of the signature MUST end in a carriage-return.
+
+The signing string for the project-listing example would be:
+
+===
+GET
+api.lumino.so
+/v3/lui/projects/
+
+
+1342758911406
+key_id: IZj79BvIiW0uZw-IYJXgDd53Mua4RUdg
+===
+
+The sig parameter is calculated from this signing string, the secret
+given by https://api.lumino.so/v3/.auth/login/, and the prescribed digest
+(HMAC-SHA1).  This value is base64-encoded to yield the final sig value.
+In this example, the secret is jAX_FJfN4CiLGhJrkxg40DA0Fum9vVbG and the
+final sig value is k8NNivwHQrAckdTl3LNRhW3hkF0=
+
+When a file is being submitted via POST or PUT, the "content-type" in the
+HMAC signing string SHOULD match the Content-Type in the HTTP headers.  In
+general, the content-type for a file upload SHOULD be application/json.
+All other query types SHOULD have application/x-www-form-urlencoded in the
+HTTP headers with a blank in the HMAC template.
+
+A complete request looks like this (the Cookie parameter is omitted for
+visual clarity):
+
+===
+POST /v3/dashboard/pipeline_test/topics/create
+Host: api.lumino.so
+Content-Type: application/x-www-form-urlencoded
+Cookie: (omitted)
+Content-Length: 142
+
+name=New+Topic&color=%23e2105f&terms=%5B%5D&key_id=c_vwaEaUuvn6kmK4pigas93nvFxRKJIh&sig=i3oGWTupGc3Bv2XaFL55wzQiHGE%3D&expires=1343316416573
+===
+
+The signing string for this request looks like this:
+
+===
+POST
+api.lumino.so
+/v3/dashboard/pipeline_test/topics/create/
+
+
+1343316416573
+color: #e2105f
+key_id: c_vwaEaUuvn6kmK4pigas93nvFxRKJIh
+name: New%20Topic
+terms: %5B%5D
+===
+
+Again note that the last line terminates with a carriage-return.
+
+The secret for this request was R8BA2gjkBl4yExNgIYawzRtu5NzmsBoy , which
+yields a base64-encoded HMAC-SHA1 signature of v2C3KziSm3Kob5wEcCVdm3E7LzY=
+
+_______________________________________________________________
+
+CODE EXAMPLES
+
+#Python
+import base64
+from hashlib import sha1
+from hmac import HMAC
+
+signature = \
+"""GET
+api.lumino.so
+/v3/lui/projects/
+
+
+1342758911406
+key_id: IZj79BvIiW0uZw-IYJXgDd53Mua4RUdg
+"""
+
+secret = 'jAX_FJfN4CiLGhJrkxg40DA0Fum9vVbG'
+
+digested = HMAC(secret, signature, sha1).digest()
+encoded = base64.b64encode(digested)
+
+print encoded
+print "Success:", (encoded == "k8NNivwHQrAckdTl3LNRhW3hkF0=")
+
+_______________________________________________________________
+
+
+#!/usr/bin/env ruby
+# Ruby
+require 'base64'
+require 'openssl'
+
+signature =
+"GET
+api.lumino.so
+/v3/lui/projects/
+
+
+1342758911406
+key_id: IZj79BvIiW0uZw-IYJXgDd53Mua4RUdg
+"
+
+secret = 'jAX_FJfN4CiLGhJrkxg40DA0Fum9vVbG'
+
+digested = OpenSSL::HMAC.digest('sha1', secret, signature)
+encoded = Base64.encode64(digested).chomp
+
+puts encoded
+puts "Success:" + (encoded == "k8NNivwHQrAckdTl3LNRhW3hkF0=").to_s
+
+
