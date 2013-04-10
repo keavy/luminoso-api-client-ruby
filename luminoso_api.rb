@@ -30,7 +30,7 @@ class LuminosoClient
         @api_name = api_name
         @version = version
         @protocol = protocol
-        @url = protocol + '/' + api_name + '/' + version + '/'
+        @url = protocol + '://' + api_name + '/' + version + '/'
         login_url = @url + '.auth/login/'
         begin
             response = RestClient.post(login_url,
@@ -67,8 +67,7 @@ class LuminosoClient
         if data then
             sha1 = Digest::SHA1.digest(data)
             json_hash = Base64.encode64(sha1)
-            # TODO: does content_type go in url params??
-            content_type = url_params['content_type']
+            content_type = 'application/json'
             request_body = data
         end
 
@@ -76,10 +75,10 @@ class LuminosoClient
         path = strip(path, '/')
 
         # add key_id to url parameters
-        params.merge!(:key_id => @key_id)
+        url_params.merge!(:key_id => @key_id)
         
         # parameters for sign string are url parameters and form parameters
-        sign_params = params.merge(form_params)
+        sign_params = url_params.merge(form_params)
 
         sign_string = req_type + "\n"
         sign_string += @api_name + "\n"
@@ -94,7 +93,7 @@ class LuminosoClient
         # iterate options alphabetically by symbol
         sorted_params.each do |option|
             s = "#{option[0]}: #{CGI.escape(option[1])}\n"
-            sign_string+=s
+            sign_string += s
         end
 
         digested = OpenSSL::HMAC.digest('sha1', @secret, sign_string)
@@ -109,10 +108,18 @@ class LuminosoClient
             # make the request
             path_client = RestClient::Resource.new(request_url)
             method = path_client.method(req_type.downcase)
-            method.call(request_body,
-                        {:params => url_params,
-                         :cookie => @session_cookie,
-                         :content_type => content_type})
+            headers = {:cookie => @session_cookie,
+                       :params => url_params}
+            if content_type != '' then
+                headers['content_type'] = content_type
+            end
+
+            if ['PUT', 'POST', 'PATCH'].include?(req_type) then
+                # these have a request body
+                response = method.call(request_body, headers)
+            else
+                response = method.call(headers)
+            end
 
             # update the cookie
             session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
@@ -123,159 +130,35 @@ class LuminosoClient
         return response
     end
 
-
-
-#__________________________________________________
-#   GET 
-# interface example: client.get('projects/foo/docs/search', :text=>'thing', :limit=>10)
 
     def get(path, options={})
-
-        # add key_id to options hash
-        options.merge!(:key_id => @key_id)
-        #"GET\n#{@api_name}\n"   ## ..........
-        sign_string =
-"GET
-api.lumino.so
-/v3/"+@project + "/" + path + "
-
-
-"+@expires+"\n"
-
-        # alphabetical key (symbol) order
-        sorted_options = options.sort_by {|sym| sym.to_s}
-
-        # iterate options alphabetically by symbol
-        sorted_options.each do |option|
-            s = "#{option[0]}: #{CGI.escape(option[1])}\n"
-            sign_string+=s
-        end
-#        puts "===\n"+sign_string+"==="
-
-        digested = OpenSSL::HMAC.digest('sha1', @secret, sign_string)
-        # encrypt the digest
-        encoded = Base64.encode64(digested).chomp
-
-        begin
-            account_url = @@base_url + @project + '/'
-            # add sig, expires to params
-            options.merge!(:sig => encoded, :expires => @expires)
-            response = RestClient.get(account_url+path,
-                             {:params => options, :cookie => @session_cookie})
-
-            session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
-            # update the cookie
-            @session_cookie = session_cookie[0]
-        rescue => e
-            response = e.message
-        end
-        return response
-    end    
-
-
-#__________________________________________________
-#   PUT 
-# interface example: client.put('projects/foo/', :desc=>'Project description')
-
-    def put(path, options={})
-
-        # add key_id to options hash
-        options.merge!(:key_id => @key_id)
-        sign_string =
-"PUT
-api.lumino.so
-/v3/"+@project + "/" + path + "
-
-
-"+@expires+"\n"
-
-        # alphabetical key (symbol) order
-        sorted_options = options.sort_by {|sym| sym.to_s}
-
-        # iterate options alphabetically by symbol
-        sorted_options.each do |option|
-            s = "#{option[0]}: #{URI::encode(option[1])}\n"; sign_string+=s
-        end
-#        puts "===\n"+sign_string+"==="
-
-        digested = OpenSSL::HMAC.digest('sha1', @secret, sign_string)
-        # encrypt the digest
-        encoded = Base64.encode64(digested).chomp
-
-        begin
-            account_url = @@base_url + @project + '/'
-            # add sig, expires to params
-            options.merge!(:sig => encoded, :expires => @expires)
-            response = RestClient.put(account_url+path, options, {:cookie => @session_cookie})
-            session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
-            # update the cookie
-            @session_cookie = session_cookie[0]
-        rescue => e
-            response = e.message
-        end
-        return response
+        self.request('GET', path, options)
     end
 
-#__________________________________________________
-#   POST
-# interface example: client.put('projects/foo/', :desc=>'Project description')
+
+    def put(path, options={})
+        self.request('PUT', path, {}, options)
+    end
+
 
     def post(path, options={})
+        self.request('POST', path, {}, options)
+    end
 
-        json = nil
-        json_hash = ""
-        content_type = ""
-        # process JSON
-        if options[:json] then
-            json = options[:json]
-            # Hash the JSON
-            sha1 = Digest::SHA1.digest(json)
-            json_hash = Base64.encode64(sha1)        
-            content_type = "application/json"
-            options.delete(:json)
-        end
-        
-        # add key_id to options hash
-        options.merge!(:key_id => @key_id)
 
-        sign_string =
-"POST
-api.lumino.so
-/v3/"+@project + "/" + api + "
-" + json_hash.chomp + "
-" + content_type + "
-"+@expires+"\n"
+    def post_data(path, data, options={})
+        self.request('POST', path, options, {}, data)
+    end
 
-        # alphabetical key (symbol) order
-        sorted_options = options.sort_by {|sym| sym.to_s}
 
-        # iterate options alphabetically by symbol
-        sorted_options.each do |option|
-            s = "#{option[0]}: #{URI::encode(option[1])}\n"; sign_string+=s
-        end
-        puts "===\n"+sign_string+"==="
+    def patch(path, options={})
+        self.request('PATCH', path, {}, options)
+    end
 
-        digested = OpenSSL::HMAC.digest('sha1', @secret, sign_string)
-        # encrypt the digest
-        encoded = Base64.encode64(digested).chomp
 
-        begin
-            account_url = @@base_url + @project + '/'
-            # add sig, expires to params
-            options.merge!(:sig => encoded, :expires => @expires)
-            response = RestClient.post(account_url+path,
-                                       options,
-                                       {:cookie => @session_cookie})
-
-            session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
-            # update the cookie
-            @session_cookie = session_cookie[0]
-        rescue => e
-            response = e.message
-        end
-        return response
-    end    
-
+    def delete(path, options={})
+        self.request('DELETE', path, options)
+    end
 
 end
 
