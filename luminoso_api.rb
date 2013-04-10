@@ -52,6 +52,78 @@ class LuminosoClient
     end
 
 
+    # Make a request to the API.
+    # req_type: 'GET', 'PUT', 'POST', 'DELETE', or 'PATCH'
+    # path: path of the resource, relative to @url
+    # url_params: url parameters (as a dictionary)
+    # form_params: POST/PUT parameters (as a dictionary)
+    # data: what to put into the body of the request (string)
+    def request(req_type, path, url_params={}, form_params={}, data=nil)
+
+        # if uploading data, compute sha1 hash
+        json_hash = ""
+        content_type = ""
+        request_body = form_params
+        if data then
+            sha1 = Digest::SHA1.digest(data)
+            json_hash = Base64.encode64(sha1)
+            # TODO: does content_type go in url params??
+            content_type = url_params['content_type']
+            request_body = data
+        end
+
+        # strip '/' from path
+        path = strip(path, '/')
+
+        # add key_id to url parameters
+        params.merge!(:key_id => @key_id)
+        
+        # parameters for sign string are url parameters and form parameters
+        sign_params = params.merge(form_params)
+
+        sign_string = req_type + "\n"
+        sign_string += @api_name + "\n"
+        sign_string += "/#{@version}/#{path}/\n"
+        sign_string += json_hash.chomp + "\n"
+        sign_string += content_type + "\n"
+        sign_string += @expires + "\n"
+
+        # alphabetical key (symbol) order
+        sorted_params = sign_params.sort_by {|sym| sym.to_s}
+
+        # iterate options alphabetically by symbol
+        sorted_params.each do |option|
+            s = "#{option[0]}: #{CGI.escape(option[1])}\n"
+            sign_string+=s
+        end
+
+        digested = OpenSSL::HMAC.digest('sha1', @secret, sign_string)
+        # encrypt the digest
+        encoded = Base64.encode64(digested).chomp
+
+        begin
+            request_url = @url + path + '/'
+            # add sig, expires to params
+            url_params.merge!(:sig => encoded, :expires => @expires)
+
+            # make the request
+            path_client = RestClient::Resource.new(request_url)
+            method = path_client.method(req_type.downcase)
+            method.call(request_body,
+                        {:params => url_params,
+                         :cookie => @session_cookie,
+                         :content_type => content_type})
+
+            # update the cookie
+            session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
+            @session_cookie = session_cookie[0]
+        rescue => e
+            response = e.message
+        end
+        return response
+    end
+
+
 
 #__________________________________________________
 #   GET 
