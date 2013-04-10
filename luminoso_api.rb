@@ -3,8 +3,7 @@ require 'rubygems'
 require 'rest_client'
 require 'json'
 require 'base64'
-require 'openssl'
-require 'open-uri'
+require 'digest/sha1'
 
 class LuminosoClient
     @@base_url = 'https://api.lumino.so/v3/'
@@ -130,13 +129,24 @@ api.lumino.so
 
     def post(api, options={})
 
-        options.merge!(:key_id => @key_id)          # add key_id to options hash...
+        json = nil
+        json_hash = ""
+        content_type = ""
+        if options[:json] then                                        # process JSON
+            json = options[:json]
+            sha1 = Digest::SHA1.digest(json)                   # Hash the JSON
+            json_hash = Base64.encode64(sha1)        
+            content_type = "application/json"
+            options.delete(:json)
+        end
+        
+        options.merge!(:key_id => @key_id)            # add key_id to options hash...
         sign_string =
 "POST
 api.lumino.so
 /v3/"+@project + "/" + api + "
-
-
+" + json_hash.chomp + "
+" + content_type + "
 "+@expires+"\n"
 
         sorted_options = options.sort_by {|sym| sym.to_s}      # alphabetical key (symbol) order 
@@ -144,7 +154,7 @@ api.lumino.so
         sorted_options.each do |option|                                   # iterate options alphabetically by symbol
             s = "#{option[0]}: #{URI::encode(option[1])}\n"; sign_string+=s
         end
-#        puts "===\n"+sign_string+"==="
+        puts "===\n"+sign_string+"==="
 
         digested = OpenSSL::HMAC.digest('sha1', @secret, sign_string)
         encoded = Base64.encode64(digested).chomp           # encrypt the digest
@@ -152,8 +162,11 @@ api.lumino.so
         begin
             account_url = @@base_url + @project + '/'
             options.merge!(:sig => encoded, :expires => @expires)       # add sig, expires to params
-            response = RestClient.post(account_url+api, options, {:cookie => @session_cookie})
-
+            if json then
+                response = RestClient.post(account_url+api, json, {:cookie => @session_cookie})            
+            else
+                response = RestClient.post(account_url+api, options, {:cookie => @session_cookie})
+            end
             session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
             @session_cookie = session_cookie[0]                     # update the cookie
         rescue => e

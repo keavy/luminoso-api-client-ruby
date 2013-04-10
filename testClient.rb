@@ -27,16 +27,20 @@ if code then
 #    result = project.get('projects/Siddhartha/topics/')
 #    result = project.get('projects/Siddhartha/topics/stats/')
 #    result = project.get('projects/Siddhartha/docs/correlations/')
-    result = project.put('projects/Siddhartha/', :desc=>"A Book")
-    puts result
+#    result = project.put('projects/Siddhartha/', :desc=>"A Book")
 #    result = project.put('projects/Siddhartha/', :desc=>"Book")
 #    puts result
 #    result = project.put('projects/Siddhartha/terms/ignorelist/', :term=>"Boo")
 #    result = project.get('projects/Siddhartha/terms/ignorelist/')
-#    result = project.post('projects/Siddhartha/docs/correlations/')
+    result = project.post('projects/Siddhartha/docs/correlations/')
+#    result = project.post('projects/NewProject/docs', :json=>'[{"title": "A Document!", "text": "This is the text of my document."}]')
 #    result = conceptualSearch(project, 'river', 10)
 
+    puts result
 
 end
+
+
+
 
 
