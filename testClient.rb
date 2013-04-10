@@ -32,8 +32,8 @@ if code then
 #    puts result
 #    result = project.put('projects/Siddhartha/terms/ignorelist/', :term=>"Boo")
 #    result = project.get('projects/Siddhartha/terms/ignorelist/')
-    result = project.post('projects/Siddhartha/docs/correlations/')
-#    result = project.post('projects/NewProject/docs', :json=>'[{"title": "A Document!", "text": "This is the text of my document."}]')
+#    result = project.post('projects/Siddhartha/docs/correlations/')
+    result = project.post('projects/NewProject/docs', :json=>'[{"title": "A Document!", "text": "This is the text of my document."}]')
 #    result = conceptualSearch(project, 'river', 10)
 
     puts result

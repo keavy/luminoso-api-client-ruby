@@ -162,11 +162,7 @@ api.lumino.so
         begin
             account_url = @@base_url + @project + '/'
             options.merge!(:sig => encoded, :expires => @expires)       # add sig, expires to params
-            if json then
-                response = RestClient.post(account_url+api, json, {:cookie => @session_cookie})            
-            else
-                response = RestClient.post(account_url+api, options, {:cookie => @session_cookie})
-            end
+            response = RestClient.post(account_url+api, options, {:cookie => @session_cookie})
             session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
             @session_cookie = session_cookie[0]                     # update the cookie
         rescue => e
