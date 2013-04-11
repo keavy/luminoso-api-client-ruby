@@ -9,7 +9,6 @@ require 'digest/sha1'
 # TODO:
 # - raise exceptions on errors?
 # - keepalive / auto-relogin?
-# - tests!
 
 
 class LuminosoClient
