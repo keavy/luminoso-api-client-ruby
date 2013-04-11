@@ -8,7 +8,6 @@ require 'digest/sha1'
 
 # TODO:
 # - raise exceptions on errors?
-# - wait_for method?
 # - keepalive / auto-relogin?
 # - tests!
 
@@ -194,6 +193,21 @@ class LuminosoClient
     # docs should be an array of hashes, each of which is one document
     def upload(path, docs, params={})
         self.request('POST', path, params, {}, JSON.generate(docs))
+    end
+
+    
+    # Wait for a job to finish.
+    # path should be something like '/myaccount/projects/myproject/jobs/id/22',
+    #    where 22 is the job number returned by the upload/calculate request
+    def wait_for(path)
+        job_status = {}
+        while true
+            job_status = self.request('GET', path)
+            if job_status['error'] || job_status['result']['stop_time']
+                break
+            end
+        end
+        return job_status
     end
 
 end
