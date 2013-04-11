@@ -7,8 +7,10 @@ require 'digest/sha1'
 
 
 # TODO:
-# - deal with non-json endpoints (csv, documentation, ...)
 # - raise exceptions on errors?
+# - wait_for method?
+# - keepalive / auto-relogin?
+# - tests!
 
 
 class LuminosoClient
@@ -67,7 +69,8 @@ class LuminosoClient
     # url_params: url parameters (as a dictionary)
     # form_params: POST/PUT parameters (as a dictionary)
     # data: what to put into the body of the request (string)
-    def request(req_type, path, url_params={}, form_params={}, data=nil)
+    def request(req_type, path, url_params={}, form_params={}, data=nil,
+                options={})
 
         # convert parameters to correct format
         url_params = jsonify_parameters(url_params)
@@ -103,7 +106,7 @@ class LuminosoClient
         # alphabetical key (symbol) order
         sorted_params = sign_params.sort_by {|sym| sym.to_s}
 
-        # iterate options alphabetically by symbol
+        # iterate parameters alphabetically by symbol
         sorted_params.each do |option|
             s = "#{option[0]}: #{CGI.escape(option[1])}\n"
             sign_string += s
@@ -139,37 +142,51 @@ class LuminosoClient
         rescue RestClient::Exception => e
             response = e.http_body
         end
-        return JSON.parse(response)
+        if options[:raw]
+            return response
+        else
+            return JSON.parse(response)
+        end
     end
 
 
-    def get(path, options={})
-        self.request('GET', path, options)
+    def get(path, params={})
+        self.request('GET', path, params)
     end
 
 
-    def put(path, options={})
-        self.request('PUT', path, {}, options)
+    def put(path, params={})
+        self.request('PUT', path, {}, params)
     end
 
 
-    def post(path, options={})
-        self.request('POST', path, {}, options)
+    def post(path, params={})
+        self.request('POST', path, {}, params)
     end
 
 
-    def post_data(path, data, options={})
-        self.request('POST', path, options, {}, data)
+    def patch(path, params={})
+        self.request('PATCH', path, {}, params)
     end
 
 
-    def patch(path, options={})
-        self.request('PATCH', path, {}, options)
+    def delete(path, params={})
+        self.request('DELETE', path, params)
     end
 
 
-    def delete(path, options={})
-        self.request('DELETE', path, options)
+    # Get the raw response body (as opposed to json-decoded).
+    # This is used for the documentation endpoint (/) (plaintext),
+    # as well as some endpoints that return CSV-formatted responses.
+    def get_raw(path, params={})
+        self.request('GET', path, params, {}, nil, {:raw=>true})
+    end
+
+
+    # Upload documents.
+    # docs should be an array of hashes, each of which is one document
+    def upload(path, docs, params={})
+        self.request('POST', path, params, {}, JSON.generate(docs))
     end
 
 end
