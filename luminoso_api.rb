@@ -7,8 +7,8 @@ require 'digest/sha1'
 
 
 # TODO:
-# - convert number/boolean arguments to strings
 # - deal with non-json endpoints (csv, documentation, ...)
+# - raise exceptions on errors?
 
 
 class LuminosoClient
@@ -24,7 +24,6 @@ class LuminosoClient
         @key_id = nil
         @secret = nil
         @expires = nil
-        @session_cookie = nil
     end
 
     # Log in to Luminoso
@@ -55,9 +54,9 @@ class LuminosoClient
             @key_id = h["result"]["key_id"].to_s
             @secret = h["result"]["secret"].to_s
             @expires = h["result"]["key_expires"].to_s    
-            return @key_id
-        rescue => e
-            return nil
+            return h
+        rescue RestClient::Exception => e
+            return JSON.parse(e.http_body)
         end
     end
 
@@ -70,11 +69,15 @@ class LuminosoClient
     # data: what to put into the body of the request (string)
     def request(req_type, path, url_params={}, form_params={}, data=nil)
 
+        # convert parameters to correct format
+        url_params = jsonify_parameters(url_params)
+        form_params = jsonify_parameters(form_params)
+
         # if uploading data, compute sha1 hash
         json_hash = ""
         content_type = ""
         request_body = form_params
-        if data then
+        if data
             sha1 = Digest::SHA1.digest(data)
             json_hash = Base64.encode64(sha1)
             content_type = 'application/json'
@@ -116,19 +119,18 @@ class LuminosoClient
             url_params.merge!(:sig => encoded, :expires => @expires)
 
             # make the request
-            path_client = RestClient::Resource.new(request_url)
-            method = path_client.method(req_type.downcase)
+            method = RestClient.method(req_type.downcase)
             headers = {:cookie => @session_cookie,
                        :params => url_params}
-            if content_type != '' then
+            if content_type != ''
                 headers[:content_type] = content_type
             end
 
-            if ['PUT', 'POST', 'PATCH'].include?(req_type) then
+            if ['PUT', 'POST', 'PATCH'].include?(req_type)
                 # these have a request body
-                response = method.call(request_body, headers)
+                response = method.call(request_url, request_body, headers)
             else
-                response = method.call(headers)
+                response = method.call(request_url, headers)
             end
 
             # update the cookie
@@ -172,6 +174,24 @@ class LuminosoClient
 
 end
 
+
+
+# Convert parameters hash to correct format
+# (strings stay the same, integers become strings,
+#  hashes and arrays get json-encoded)
+def jsonify_parameters(params)
+    encoded_params = {}
+    params.each_pair do |key, val|
+        if val.is_a?(String)
+            encoded_params[key] = val
+        elsif val.is_a?(Integer)
+            encoded_params[key] = val.to_s
+        else
+            encoded_params[key] = JSON.generate(val)
+        end
+    end
+    return encoded_params
+end
 
 
 # Copied from someone on StackOverflow
