@@ -6,6 +6,12 @@ require 'base64'
 require 'digest/sha1'
 
 
+# TODO:
+# - convert number/boolean arguments to strings
+# - json-decode responses
+# - figure out why it's giving "401 Unauthorized" instead of actual response
+
+
 class LuminosoClient
 
     def initialize
@@ -31,7 +37,12 @@ class LuminosoClient
         @version = version
         @protocol = protocol
         @url = protocol + '://' + api_name + '/' + version + '/'
-        login_url = @url + '.auth/login/'
+        if version == 'v3'
+            login_url = @url + '.auth/login/'
+        else
+            login_url = @url + 'user/login/'
+        end
+
         begin
             response = RestClient.post(login_url,
                                        {:username => username,
@@ -111,7 +122,7 @@ class LuminosoClient
             headers = {:cookie => @session_cookie,
                        :params => url_params}
             if content_type != '' then
-                headers['content_type'] = content_type
+                headers[:content_type] = content_type
             end
 
             if ['PUT', 'POST', 'PATCH'].include?(req_type) then
