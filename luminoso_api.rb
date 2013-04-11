@@ -8,8 +8,7 @@ require 'digest/sha1'
 
 # TODO:
 # - convert number/boolean arguments to strings
-# - json-decode responses
-# - figure out why it's giving "401 Unauthorized" instead of actual response
+# - deal with non-json endpoints (csv, documentation, ...)
 
 
 class LuminosoClient
@@ -135,10 +134,10 @@ class LuminosoClient
             # update the cookie
             session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
             @session_cookie = session_cookie[0]
-        rescue => e
-            response = e.message
+        rescue RestClient::Exception => e
+            response = e.http_body
         end
-        return response
+        return JSON.parse(response)
     end
 
 
