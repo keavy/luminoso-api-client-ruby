@@ -117,7 +117,11 @@ class LuminosoClient
         encoded = Base64.encode64(digested).chomp
 
         begin
-            request_url = @url + path + '/'
+            if path == ''
+                request_url = @url
+            else
+                request_url = @url + path + '/'
+            end
             # add sig, expires to params
             url_params.merge!(:sig => encoded, :expires => @expires)
 
@@ -137,11 +141,14 @@ class LuminosoClient
             end
 
             # update the cookie
-            session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
-            @session_cookie = session_cookie[0]
+            if response.headers[:set_cookie]
+                session_cookie = response.headers[:set_cookie].select {|a| a.match(/^session/)}
+                @session_cookie = session_cookie[0]
+            end
         rescue RestClient::Exception => e
             response = e.http_body
         end
+
         if options[:raw]
             return response
         else
