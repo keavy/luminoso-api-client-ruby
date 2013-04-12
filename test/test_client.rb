@@ -17,7 +17,7 @@ class TestClient < Test::Unit::TestCase
         @client = LuminosoClient.new
         # this uses the real https://api.lumino.so/v3/
         response = @client.connect(username, password)
-        assert(response['result']['key_id'], response['result'])
+        assert(response['key_id'], response['result'])
         @project = "ruby-api-client-test-#{ENV['USER']}-#{Process.pid}"
     end
 
@@ -32,37 +32,31 @@ class TestClient < Test::Unit::TestCase
     # get a json response
     def test_3_get_projects
         response = @client.get("/#{@username}/projects")
-        assert(response['error'] == nil, response)
-        assert(response['result'][0].has_key?('name'), response)
+        assert(response[0].has_key?('name'), response)
     end
 
     # post request
     def test_4_create_project
         response = @client.post("/#{@account}/projects/", :project=>@project)
-        assert(response['error'] == nil, response)
-        assert(response['result']['name'] == @project, response)
+        assert(response['name'] == @project, response)
     end
 
     # post data (upload documents)
     def test_5_upload
         my_docs = [{:title => 'doc', :text => 'here is a document'}]
-        response = @client.upload("/#{@account}/projects/#{@project}/docs/",
-                                  my_docs)
-        assert(response['error'] == nil, response)
-        job_id = response['result']
-        assert(job_id.is_a?(Integer), response)
+        job_id = @client.upload("/#{@account}/projects/#{@project}/docs/",
+                                my_docs)
+        assert(job_id.is_a?(Integer), job_id)
         puts "waiting for /#{@account}/projects/#{@project}/jobs/id/#{job_id}/"
         response = @client.wait_for(
             "/#{@account}/projects/#{@project}/jobs/id/#{job_id}/")
-        assert(response['error'] == nil, response)
-        assert(response['result'].has_key?('success'))
+        assert(response.has_key?('success'))
     end
 
     # delete request
     def test_6_delete_project
         response = @client.delete("/#{@account}/projects/", :project=>@project)
-        assert(response['error'] == nil, response)
-        assert(response['result'] == 'Deleted.', response)
+        assert(response == 'Deleted.', response)
     end
 
 end

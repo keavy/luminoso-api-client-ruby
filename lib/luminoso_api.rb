@@ -7,8 +7,8 @@ require 'digest/sha1'
 
 
 # TODO:
-# - raise exceptions on errors?
 # - keepalive / auto-relogin?
+# - make "modules" or something
 
 
 class LuminosoClient
@@ -54,9 +54,14 @@ class LuminosoClient
             @key_id = h["result"]["key_id"].to_s
             @secret = h["result"]["secret"].to_s
             @expires = h["result"]["key_expires"].to_s    
-            return h
+            return h["result"]
         rescue RestClient::Exception => e
-            return JSON.parse(e.http_body)
+            begin
+                message = JSON.parse(e.http_body)
+            rescue JSON::ParserError
+                message = e.http_body
+            end
+            raise LuminosoError.new(message, e.http_code)
         end
     end
 
@@ -144,13 +149,18 @@ class LuminosoClient
                 @session_cookie = session_cookie[0]
             end
         rescue RestClient::Exception => e
-            response = e.http_body
+            begin
+                message = JSON.parse(e.http_body)
+            rescue JSON::ParserError
+                message = e.http_body
+            end
+            raise LuminosoError.new(message, e.http_code)
         end
 
         if options[:raw]
             return response
         else
-            return JSON.parse(response)
+            return JSON.parse(response)['result']
         end
     end
 
@@ -196,21 +206,41 @@ class LuminosoClient
 
     
     # Wait for a job to finish.
-    # path should be something like '/myaccount/projects/myproject/jobs/id/22',
+    # path should be something like
+    #    '/myaccount/projects/myproject/jobs/id/22',
     #    where 22 is the job number returned by the upload/calculate request
     def wait_for(path)
         job_status = {}
-        while true
+        while job_status['stop_time'] == nil
             job_status = self.request('GET', path)
-            if job_status['error'] || job_status['result']['stop_time']
-                break
-            end
+            sleep(5)
         end
         return job_status
     end
 
 end
 
+
+class LuminosoError < StandardError
+    
+    def initialize(response=nil, http_code=nil)
+        @response = response
+        @http_code = http_code
+    end
+
+    def response
+        @response
+    end
+
+    def http_code
+        @http_code
+    end
+
+    def to_s
+        "#{@http_code}: #{@response.inspect}"
+    end
+
+end
 
 
 # Convert parameters hash to correct format
