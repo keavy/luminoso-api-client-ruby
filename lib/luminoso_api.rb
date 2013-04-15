@@ -9,6 +9,7 @@ require 'digest/sha1'
 # TODO:
 # - keepalive / auto-relogin?
 # - make "modules" or something
+# - change_path?
 
 
 class LuminosoClient
