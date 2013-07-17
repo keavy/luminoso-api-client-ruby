@@ -28,8 +28,8 @@ class LuminosoClient
     end
 
     # Log in to Luminoso
-    def connect(username=nil, password=nil, api_name='api.lumino.so',
-                version='v3', protocol='https')
+    def connect(username=nil, password=nil, api_name='api.luminoso.com',
+                version='v4', protocol='https')
         @username = username
         @password = password
         @api_name = api_name

@@ -15,7 +15,6 @@ class TestClient < Test::Unit::TestCase
         password = user_info['password']
         
         @client = LuminosoClient.new
-        # this uses the real https://api.lumino.so/v3/
         response = @client.connect(username, password)
         assert(response['key_id'], response['result'])
         @project = "ruby-api-client-test-#{ENV['USER']}-#{Process.pid}"
@@ -31,31 +30,37 @@ class TestClient < Test::Unit::TestCase
 
     # get a json response
     def test_3_get_projects
-        response = @client.get("/#{@username}/projects")
+        response = @client.get("/projects/#{@account}")
         assert(response[0].has_key?('name'), response)
     end
 
     # post request
     def test_4_create_project
-        response = @client.post("/#{@account}/projects/", :project=>@project)
+        response = @client.post("/projects/#{@account}/", :name=>@project)
         assert(response['name'] == @project, response)
     end
 
     # post data (upload documents)
     def test_5_upload
         my_docs = [{:title => 'doc', :text => 'here is a document'}]
-        job_id = @client.upload("/#{@account}/projects/#{@project}/docs/",
+        # get the project_id again, because apparently setting @project_id in
+        # the test_4_create_project method doesn't actually work.
+        project_id = @client.get("/projects/#{@account}/",
+                                 :name=>@project)[0]["project_id"]
+        job_id = @client.upload("/projects/#{@account}/#{project_id}/docs/",
                                 my_docs)
         assert(job_id.is_a?(Integer), job_id)
-        puts "waiting for /#{@account}/projects/#{@project}/jobs/id/#{job_id}/"
+        puts "waiting for /projects/#{@account}/#{project_id}/jobs/id/#{job_id}/"
         response = @client.wait_for(
-            "/#{@account}/projects/#{@project}/jobs/id/#{job_id}/")
+            "/projects/#{@account}/#{project_id}/jobs/id/#{job_id}/")
         assert(response.has_key?('success'))
     end
 
     # delete request
     def test_6_delete_project
-        response = @client.delete("/#{@account}/projects/", :project=>@project)
+        project_id = @client.get("/projects/#{@account}/",
+                                 :name=>@project)[0]["project_id"]
+        response = @client.delete("/projects/#{@account}/#{project_id}/")
         assert(response == 'Deleted.', response)
     end
 

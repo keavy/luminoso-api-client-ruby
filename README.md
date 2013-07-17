@@ -28,12 +28,14 @@ authentication information.
 [lots of terms and vectors here]
 ```
 
-When you don't specify a URL, the URL will be set to v3 of the Luminoso API (https://api.lumino.so/v3/).
+When you don't specify a URL, the URL will be set to v4 of the Luminoso API
+(https://api.luminoso.com/v4/).
 
 HTTP methods
 ------------
 
-The URLs you can communicate with are documented at https://api.lumino.so/v3/.
+The URLs you can communicate with are documented at https://api.luminoso.com/v4/
+ (or https://api.lumino.so/v3/ for v3).
 That documentation is the authoritative source for what you can do with the
 API, and this Ruby code is just here to help you do it.
 
@@ -102,5 +104,5 @@ The vectors have been encoded using pack64, which we have not yet implemented in
 Other Resources
 ---------------
         
-Auth instructions: http://www.luminoso.com/api-auth-v3.txt
-API documentation: https://api.lumino.so/v3/
+Auth instructions: http://wiki.services.lumino.so/how-to-write-an-api-client.html
+API documentation: https://api.luminoso.com/v4/ and https://api.lumino.so/v3/
