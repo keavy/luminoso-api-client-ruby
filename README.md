@@ -99,7 +99,7 @@ will return as inscrutable base64-encoded strings like this:
 
     'WAB6AJG6kL_6D_6yAHE__R9kSAE8BlgKMo_80y8cCOCCSN-9oAQcABP_TMAFhAmMCUA'
 
-The vectors have been encoded using pack64, which we have not yet implemented in Ruby, but in the meantime you can read the Python documentation: https://github.com/LuminosoInsight/pack64 .
+If you want to look inside these vectors and compare them to each other, download our library called pack64 (https://github.com/LuminosoInsight/pack64).
 
 Other Resources
 ---------------
