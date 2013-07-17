@@ -7,8 +7,7 @@ class TestClient < Test::Unit::TestCase
 
     # make sure we can log in
     def setup
-        # eww.
-        output = `tellme lumi-test`.gsub(/u'([^:])/, "'\\1").gsub("'", '"')
+        output = `tellme lumi-test -f json`
         user_info = JSON.parse(output)
         username = user_info['username']
         @account = user_info['username']
