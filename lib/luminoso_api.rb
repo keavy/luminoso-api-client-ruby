@@ -4,7 +4,8 @@ require 'rest_client'
 require 'json'
 require 'base64'
 require 'digest/sha1'
-
+require "erb"
+include ERB::Util
 
 # TODO:
 # - keepalive / auto-relogin?
@@ -112,7 +113,7 @@ class LuminosoClient
 
         # iterate parameters alphabetically by symbol
         sorted_params.each do |option|
-            s = "#{option[0]}: #{CGI.escape(option[1])}\n"
+            s = "#{option[0]}: #{url_encode(option[1])}\n"
             sign_string += s
         end
 
