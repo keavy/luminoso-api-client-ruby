@@ -16,11 +16,8 @@ include ERB::Util
 class LuminosoClient
 
     def initialize
-        @username = nil
-        @password = nil
         @api_name = nil
         @version = nil
-        @protocol = nil
         @url = nil
         @token_auth = nil
         @session_cookie = nil
@@ -29,28 +26,30 @@ class LuminosoClient
         @token = nil
     end
 
-    # Log in to Luminoso
-    def connect(username=nil, password=nil, token_auth=false,
+    # Log in to Luminoso.
+    # You can specify either a username and password or an API token.
+    def connect(username=nil, password=nil, token_auth=false, token=nil,
                 api_name='api.luminoso.com', protocol='https', version='v4')
-        @username = username
-        @password = password
         @api_name = api_name
         @version = version
-        @protocol = protocol
         @url = protocol + '://' + api_name + '/' + version + '/'
         @token_auth = token_auth
 
         begin
             if token_auth
-                response = RestClient.post(@url + 'user/login/',
-                                           {:username => username,
-                                            :password => password,
-                                            :token_auth => true
-                                           })
-                # get dictionary from response body
-                h = JSON.parse(response.body)
-                @token = h["result"]["token"]
-                return h["result"]
+                if token.nil?
+                    response = RestClient.post(@url + 'user/login/',
+                                               {:username => username,
+                                                :password => password,
+                                                :token_auth => true
+                                               })
+                    # get dictionary from response body
+                    h = JSON.parse(response.body)
+                    @token = h["result"]["token"]
+                    return h["result"]
+                else
+                    @token = token
+                end
             else
                 response = RestClient.post(@url + 'user/login/',
                                            {:username => username,
