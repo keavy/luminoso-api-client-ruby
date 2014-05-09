@@ -12,25 +12,33 @@ class TestClient < Test::Unit::TestCase
         username = user_info['username']
         @account = user_info['username']
         password = user_info['password']
-        
+
         @client = LuminosoClient.new
         response = @client.connect(username, password)
-        assert(response['key_id'], response['result'])
+        assert(response['key_id'], response)
+        @token_client = LuminosoClient.new
+        response = @token_client.connect(username, password, true)
+        assert(response['token'], response)
+
         @project = "ruby-api-client-test-#{ENV['USER']}-#{Process.pid}"
     end
 
     # get a non-json page
     def test_2_documentation
-        documentation = @client.get_raw('/')
-        assert(documentation.strip.start_with?(
-               'This API supports the following methods.'),
-               documentation.slice(0, 100))
+        for client in [@client, @token_client] do
+            documentation = client.get_raw('/')
+            assert(documentation.strip.start_with?(
+                       'This API supports the following methods.'),
+                       documentation.slice(0, 100))
+        end
     end
 
     # get a json response
     def test_3_get_projects
-        response = @client.get("/projects/#{@account}")
-        assert(response[0].has_key?('name'), response)
+        for client in [@client, @token_client] do
+            response = client.get("/projects/#{@account}")
+            assert(response[0].has_key?('name'), response)
+        end
     end
 
     # post request
@@ -46,13 +54,18 @@ class TestClient < Test::Unit::TestCase
         # the test_4_create_project method doesn't actually work.
         project_id = @client.get("/projects/#{@account}/",
                                  :name=>@project)[0]["project_id"]
-        job_id = @client.upload("/projects/#{@account}/#{project_id}/docs/",
-                                my_docs)
-        assert(job_id.is_a?(Integer), job_id)
-        puts "waiting for /projects/#{@account}/#{project_id}/jobs/id/#{job_id}/"
-        response = @client.wait_for(
-            "/projects/#{@account}/#{project_id}/jobs/id/#{job_id}/")
-        assert(response.has_key?('success'))
+        for client in [@client, @token_client] do
+            ids = client.upload("/projects/#{@account}/#{project_id}/docs/",
+                                 my_docs)
+            assert(ids.length == my_docs.length, ids)
+            job_id = client.post(
+                         "/projects/#{@account}/#{project_id}/docs/recalculate")
+            assert(job_id.is_a?(Integer), job_id)
+            puts "waiting for /projects/#{@account}/#{project_id}/jobs/id/#{job_id}/"
+            response = client.wait_for(
+                           "/projects/#{@account}/#{project_id}/jobs/id/#{job_id}/")
+            assert(response.has_key?('success'))
+        end
     end
 
     # delete request
