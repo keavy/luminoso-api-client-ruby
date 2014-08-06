@@ -1,13 +1,13 @@
 require 'test/unit'
 require 'rubygems'
 require 'json'
-require 'lib/luminoso_api'
+require '../lib/luminoso_api'
 
 class TestClient < Test::Unit::TestCase
 
     # make sure we can log in
     def setup
-        output = `tellme lumi-test -f json`
+        output = `tellme -Z lumi lumi-test`
         user_info = JSON.parse(output)
         username = user_info['username']
         @account = user_info['username']
@@ -15,10 +15,10 @@ class TestClient < Test::Unit::TestCase
 
         @client = LuminosoClient.new
         response = @client.connect(username, password)
-        assert(response['key_id'], response)
+        assert(response['key_id'], response.to_s)
         @token_client = LuminosoClient.new
         response = @token_client.connect(username, password, true)
-        assert(response['token'], response)
+        assert(response['token'], response.to_s)
 
         @project = "ruby-api-client-test-#{ENV['USER']}-#{Process.pid}"
     end
@@ -37,14 +37,14 @@ class TestClient < Test::Unit::TestCase
     def test_3_get_projects
         for client in [@client, @token_client] do
             response = client.get("/projects/#{@account}")
-            assert(response[0].has_key?('name'), response)
+            assert(response[0].has_key?('name'), response.to_s)
         end
     end
 
     # post request
     def test_4_create_project
         response = @client.post("/projects/#{@account}/", :name=>@project)
-        assert(response['name'] == @project, response)
+        assert(response['name'] == @project, response.to_s)
     end
 
     # post data (upload documents)
@@ -57,10 +57,10 @@ class TestClient < Test::Unit::TestCase
         for client in [@client, @token_client] do
             ids = client.upload("/projects/#{@account}/#{project_id}/docs/",
                                  my_docs)
-            assert(ids.length == my_docs.length, ids)
+            assert(ids.length == my_docs.length, ids.to_s)
             job_id = client.post(
                          "/projects/#{@account}/#{project_id}/docs/recalculate")
-            assert(job_id.is_a?(Integer), job_id)
+            assert(job_id.is_a?(Integer), job_id.to_s)
             puts "waiting for /projects/#{@account}/#{project_id}/jobs/id/#{job_id}/"
             response = client.wait_for(
                            "/projects/#{@account}/#{project_id}/jobs/id/#{job_id}/")
